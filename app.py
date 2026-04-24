@@ -126,17 +126,15 @@ def debug():
     ns = {'s': 'http://www.siri.org.uk/siri'}
     root = ET.fromstring(r.content)
     
-    stops_seen = []
-    for activity in root.findall('.//s:VehicleActivity', ns):
-        journey = activity.find('s:MonitoredVehicleJourney', ns)
-        if journey is None:
-            continue
-        mc = journey.find('s:MonitoredCall', ns)
-        line = journey.findtext('s:PublishedLineName', namespaces=ns) or '?'
-        stop = mc.findtext('s:StopPointRef', namespaces=ns) if mc is not None else 'none'
-        stops_seen.append({"line": line, "next_stop": stop})
+    activities = root.findall('.//s:VehicleActivity', ns)
+    if not activities:
+        return jsonify({"error": "no vehicles"})
     
-    return jsonify({"vehicles_found": len(stops_seen), "vehicles": stops_seen[:20]})
+    # return raw XML of first vehicle so we can see all fields
+    import xml.etree.ElementTree as ET2
+    raw = ET2.tostring(activities[0], encoding='unicode')
+    
+    return app.response_class(raw, mimetype='text/xml')
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
