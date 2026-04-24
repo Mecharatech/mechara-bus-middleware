@@ -113,7 +113,30 @@ def departures():
 def health():
     return jsonify({"status": "ok"})
 
-
+@app.route('/debug')
+def debug():
+    coords = (-0.0978, 50.84094)
+    lon, lat = coords
+    margin = 0.02
+    bbox = f"{lon-margin},{lat-margin},{lon+margin},{lat+margin}"
+    url = (f"https://data.bus-data.dft.gov.uk/api/v1/datafeed/"
+           f"?api_key={BODS_API_KEY}&boundingBox={bbox}")
+    r = requests.get(url, timeout=15)
+    
+    ns = {'s': 'http://www.siri.org.uk/siri'}
+    root = ET.fromstring(r.content)
+    
+    stops_seen = []
+    for activity in root.findall('.//s:VehicleActivity', ns):
+        journey = activity.find('s:MonitoredVehicleJourney', ns)
+        if journey is None:
+            continue
+        mc = journey.find('s:MonitoredCall', ns)
+        line = journey.findtext('s:PublishedLineName', namespaces=ns) or '?'
+        stop = mc.findtext('s:StopPointRef', namespaces=ns) if mc is not None else 'none'
+        stops_seen.append({"line": line, "next_stop": stop})
+    
+    return jsonify({"vehicles_found": len(stops_seen), "vehicles": stops_seen[:20]})
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
